@@ -145,6 +145,14 @@ function onListening () {
   const bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port
   console.log(`Listening on ${bind}.`)
 
+  const { exec } = require('child_process');
+  exec(app.get('ffmpegPath')+' -f avfoundation -list_devices true -i \"\"', (err, stdout, stderr) => {
+    if (err) {
+      // node couldn't execute the command
+      console.log(`stderr: ${stderr}`);
+      return;
+    }
+  })
 
   const os =require('os')
 

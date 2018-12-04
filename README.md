@@ -1,8 +1,10 @@
 # ffmpeg-streamer
 
 **ffmpeg-streamer** is a packaged nodejs [express](https://github.com/expressjs/express) server that wraps `ffmpeg` to allow easy streaming of video feeds directly to ***modern*** browsers for testing purposes.
-It currently includes 6 different types of output streaming which are *mjpeg*, *jpeg via socket.io*, *progressive mp4*, *native hls*, [*hls.js*](https://github.com/video-dev/hls.js), and *mse via socket.io*.
-Video input types supported are *rtsp*, *mp4*, *mjpeg*, and *hls*.
+It currently outputs only 1 stream which is *mjpeg*,
+Video input types is the screen capture and the third argument can be set for selecting the screen ID
+run ffmpeg -f avfoundation -list_devices true -i ""
+to find out the list of devices
 
 ### Installation
 **ffmpeg-streamer** has been packaged into an executable using [pkg](https://github.com/zeit/pkg).
