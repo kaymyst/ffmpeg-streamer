@@ -8,6 +8,7 @@ const M4F = require('mp4frag')
 const P2J = require('pipe2jpeg')
 const packageJson = require('../package')
 const title = `${packageJson.name} ver: ${packageJson.version}`
+const {Writable} = require('stream')
 let values = null
 
 function renderIndex (res, msg, vals) {
@@ -57,19 +58,53 @@ router.get('/', (req, res) => {
     renderInstall(res)
     return
   }
-  const ffmpeg = app.get('ffmpeg')
+  let ffmpeg = app.get('ffmpeg')
   if (ffmpeg && ffmpeg.running) {
-    return renderVideo(res, ffmpeg.params)
+    //return renderVideo(res, ffmpeg.params)
+    let pipe2jpeg = app.get('pipe2jpeg')
+    if (!pipe2jpeg) {
+      res.status(404).send('mjpeg not available')
+      res.destroy()
+      return
+    }
+    res.locals.pipe2jpeg = pipe2jpeg
+    res.set('Connection', 'close')
+    res.set('Cache-Control', 'private, no-cache, no-store, must-revalidate')
+    res.set('Expires', '-1')
+    res.set('Pragma', 'no-cache')
+  //  const pipe2jpeg = res.locals.pipe2jpeg
+    const jpeg = pipe2jpeg.jpeg
+    const writable = new Writable({
+      write (chunk, encoding, callback) {
+        res.write(`Content-Type: image/jpeg\r\nContent-Length: ${chunk.length}\r\n\r\n`)
+        res.write(chunk)
+        res.write('\r\n--ffmpeg_streamer\r\n')
+        callback()
+      }
+    })
+    res.set('Content-Type', 'multipart/x-mixed-replace;boundary=ffmpeg_streamer')
+    res.write('--ffmpeg_streamer\r\n')
+    if (jpeg) {
+      writable.write(jpeg, {end: true})
+    }
+    pipe2jpeg.pipe(writable)
+    res.once('close', () => {
+      if (pipe2jpeg && writable) {
+        pipe2jpeg.unpipe(writable)
+      }
+      res.destroy()
+    })
   }
   const activity = app.get('activity')
   if (activity.running && activity.lastActivity) {
     return renderIndex(res, null, activity.lastActivity)
   }
-  return renderIndex(res, null, null)
+  //return renderIndex(res, null, null)
 })
 
 router.post('/', (req, res) => {
   const app = req.app
+
   const activity = app.get('activity')
   let ffmpeg = app.get('ffmpeg')
   let mp4frag = app.get('mp4frag')
@@ -79,6 +114,7 @@ router.post('/', (req, res) => {
     ffmpeg.stop()
   }
   const body = req.body
+  body.action = 'Start'
   switch (body.action) {
     case 'Create':
       activity.create()
@@ -105,70 +141,38 @@ router.post('/', (req, res) => {
       values = body
 
       /** @param {String} values.logLevel - (-loglevel logLevel) */
-      const logLevel = values.logLevel
+      const logLevel = 'info'
 
       /** @param {String} values.hwAccel - (-hwaccel hwAccel) */
-      const hwAccel = values.hwAccel
+      const hwAccel = 'auto'
 
       /** @param {Number} [values.analyzeDuration] - (-analyzeduration analyzeDuration) 0 - 10000000 */
-      const analyzeDuration = values.analyzeDuration
+      const analyzeDuration = 10000000
 
       /** @param {Number} [values.probeSize] - (-probesize probeSize) 32 - 1048576 */
-      const probeSize = values.probeSize
+      const probeSize = 1048576
 
       /** @param {String} values.inputType - (-f inputType) */
-      const inputType = values.inputType
+      const inputType = 'avfoundation'
 
       /** @param {String} values.inputUrl - (-i inputUrl) */
-      const inputUrl = values.inputUrl
+      const inputUrl = '1'
 
       /** @param {String} [values.rtspTransport] - (-rtsp_transport rtspTransport) */
-      const rtspTransport = values.rtspTransport
+      const rtspTransport = 'tcp'
 
-      /** @param {Number} values.mp4HlsListSize - (mp4frag.hlsListSize = mp4HlsListSize) 2 - 5 */
-      const mp4HlsListSize = values.mp4HlsListSize
-
-      /** @param {String} values.mp4AudioCodec - (-c:a mp4AudioCodec or -an) */
-      const mp4AudioCodec = values.mp4AudioCodec
-
-      /** @param {String} values.mp4VideoCodec - (-c:v mp4VideoCodec) */
-      const mp4VideoCodec = values.mp4VideoCodec
-
-      /** @param {Number} [values.mp4Rate] - (-r mp4Rate) 1 - 30 */
-      const mp4Rate = values.mp4Rate
-
-      /** @param {Number} [values.mp4Scale] - (-vf scale=trunc(iw*mp4Scale/2)*2:-2) .10 - 1 */
-      const mp4Scale = values.mp4Scale
-
-      /** @param {Number} [values.mp4FragDur] - (-min_frag_duration mp4FragDur -frag_duration mp4FragDur) */
-      const mp4FragDur = values.mp4FragDur
-
-      /** @param {Number} [values.mp4Crf] - (-crf mp4Crf) 0 - 51 */
-      const mp4Crf = values.mp4Crf
-
-      /** @param {String} [values.mp4Preset] - (-preset mp4Preset) */
-      const mp4Preset = values.mp4Preset
-
-      /** @param {String} [values.mp4Profile] - (-profile:v mp4Profile) */
-      const mp4Profile = values.mp4Profile
-
-      /** @param {Number} [values.mp4Level] - (-level:v mp4Level) */
-      const mp4Level = values.mp4Level
-
-      /** @param {String} [values.mp4PixFmt] - (-pix_fmt mp4PixFmt) */
-      const mp4PixFmt = values.mp4PixFmt
 
       /** @param {String} values.jpegCodec - (-c jpegCodec) */
-      const jpegCodec = values.jpegCodec
+      const jpegCodec = 'mjpeg'
 
       /** @param {Number} [values.jpegRate] - (-r jpegRate) 1 - 30 */
-      const jpegRate = values.jpegRate
+      const jpegRate = 7
 
       /** @param {Number} [values.jpegScale] - (-vf scale=trunc(iw*jpegScale/2)*2:-2) .10 - 1 */
-      const jpegScale = values.jpegScale
+      const jpegScale = 0.75
 
       /** @param {Number} [values.jpegQuality] - (-q jpegQuality) 1 - 31 */
-      const jpegQuality = values.jpegQuality
+      const jpegQuality = 10
 
       /* +++++++++ process form input values ++++++++++ */
 
@@ -190,11 +194,11 @@ router.post('/', (req, res) => {
       switch (inputType) {
         /* case 'artificial':
           params.push(...['-f', 'lavfi', '-i', 'testsrc=size=1280x720:rate=15'])
-          break
+          break*/
 
         case 'avfoundation':
           params.push(...['-f', 'avfoundation', '-video_size', '640x480', '-framerate', '30', '-i', inputUrl])
-          break */
+          break
 
         case 'mp4':
           // mp4 might be a local file, dont check url
@@ -231,7 +235,7 @@ router.post('/', (req, res) => {
         default:
           throw new Error('unsupported input type')
       }
-
+/*
       if (mp4AudioCodec === 'an') {
         params.push('-an')
       } else {
@@ -277,7 +281,7 @@ router.post('/', (req, res) => {
       }
 
       params.push(...['-f', 'mp4', '-movflags', '+dash+negative_cts_offsets', 'pipe:1'])
-
+*/
       // +frag_keyframe needed for all, +empty_moov for firefox, +default_base_moof+negative_cts_offsets for chrome
 
       // params.push(...['-f', 'mp4', '-movflags', '+empty_moov+default_base_moof+negative_cts_offsets', 'pipe:1']);//+frag_keyframe needed for all, +empty_moov for firefox, +default_base_moof+negative_cts_offsets for chrome
@@ -304,7 +308,7 @@ router.post('/', (req, res) => {
 
       // TODO -f mpjpeg -boundary_tag ffmpeg_streamer so that we can later pipe response without parsing individual jpegs
       params.push(...['-f', 'image2pipe', 'pipe:4'])
-
+/*
       mp4frag = new M4F({hlsBase: 'test', hlsListSize: mp4HlsListSize, hlsListInit: true})
         .setMaxListeners(30)
         .on('error', (err) => {
@@ -313,7 +317,7 @@ router.post('/', (req, res) => {
           // ffmpeg.stop();
         })
 
-      app.set('mp4frag', mp4frag)
+      app.set('mp4frag', mp4frag)*/
 
       pipe2jpeg = new P2J()
         .setMaxListeners(30)
@@ -345,7 +349,6 @@ router.post('/', (req, res) => {
             params: params,
             logLevel: logLevel,
             pipes: [
-              {stdioIndex: 1, destination: mp4frag},
               {stdioIndex: 4, destination: pipe2jpeg}
             ],
             killAfterStall: 10,
@@ -354,7 +357,7 @@ router.post('/', (req, res) => {
             stderrLogs: stderrLogs,
             exitCallback: () => {
               // console.log('exit call back');
-              mp4frag.resetCache()
+              //mp4frag.resetCache()
             }
           })
           .on('fail', (msg) => {
