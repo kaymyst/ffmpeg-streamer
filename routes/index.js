@@ -4,7 +4,7 @@ const express = require('express')
 const router = express.Router()
 const {PassThrough} = require('stream')
 const FR = require('ffmpeg-respawn')
-const M4F = require('mp4frag')
+//const M4F = require('mp4frag')
 const P2J = require('pipe2jpeg')
 const packageJson = require('../package')
 const title = `${packageJson.name} ver: ${packageJson.version}`
@@ -60,7 +60,7 @@ router.get('/', (req, res) => {
   }
   let ffmpeg = app.get('ffmpeg')
   if (ffmpeg && ffmpeg.running) {
-    //return renderVideo(res, ffmpeg.params)
+    // return renderVideo(res, ffmpeg.params)
     let pipe2jpeg = app.get('pipe2jpeg')
     if (!pipe2jpeg) {
       res.status(404).send('mjpeg not available')
@@ -72,7 +72,7 @@ router.get('/', (req, res) => {
     res.set('Cache-Control', 'private, no-cache, no-store, must-revalidate')
     res.set('Expires', '-1')
     res.set('Pragma', 'no-cache')
-  //  const pipe2jpeg = res.locals.pipe2jpeg
+    //  const pipe2jpeg = res.locals.pipe2jpeg
     const jpeg = pipe2jpeg.jpeg
     const writable = new Writable({
       write (chunk, encoding, callback) {
@@ -99,7 +99,7 @@ router.get('/', (req, res) => {
   if (activity.running && activity.lastActivity) {
     return renderIndex(res, null, activity.lastActivity)
   }
-  //return renderIndex(res, null, null)
+  // return renderIndex(res, null, null)
 })
 
 router.post('/', (req, res) => {
@@ -107,7 +107,7 @@ router.post('/', (req, res) => {
 
   const activity = app.get('activity')
   let ffmpeg = app.get('ffmpeg')
-  let mp4frag = app.get('mp4frag')
+  //let mp4frag = app.get('mp4frag')
   let pipe2jpeg = app.get('pipe2jpeg')
   let stderrLogs = app.get('stderrLogs')
   if (ffmpeg && ffmpeg.running) {
@@ -161,7 +161,6 @@ router.post('/', (req, res) => {
       /** @param {String} [values.rtspTransport] - (-rtsp_transport rtspTransport) */
       const rtspTransport = 'tcp'
 
-
       /** @param {String} values.jpegCodec - (-c jpegCodec) */
       const jpegCodec = 'mjpeg'
 
@@ -194,7 +193,7 @@ router.post('/', (req, res) => {
       switch (inputType) {
         /* case 'artificial':
           params.push(...['-f', 'lavfi', '-i', 'testsrc=size=1280x720:rate=15'])
-          break*/
+          break */
 
         case 'avfoundation':
           params.push(...['-f', 'avfoundation', '-video_size', '640x480', '-framerate', '30', '-i', inputUrl])
@@ -235,7 +234,7 @@ router.post('/', (req, res) => {
         default:
           throw new Error('unsupported input type')
       }
-/*
+      /*
       if (mp4AudioCodec === 'an') {
         params.push('-an')
       } else {
@@ -308,7 +307,7 @@ router.post('/', (req, res) => {
 
       // TODO -f mpjpeg -boundary_tag ffmpeg_streamer so that we can later pipe response without parsing individual jpegs
       params.push(...['-f', 'image2pipe', 'pipe:4'])
-/*
+      /*
       mp4frag = new M4F({hlsBase: 'test', hlsListSize: mp4HlsListSize, hlsListInit: true})
         .setMaxListeners(30)
         .on('error', (err) => {
@@ -317,7 +316,7 @@ router.post('/', (req, res) => {
           // ffmpeg.stop();
         })
 
-      app.set('mp4frag', mp4frag)*/
+      app.set('mp4frag', mp4frag) */
 
       pipe2jpeg = new P2J()
         .setMaxListeners(30)
@@ -357,7 +356,7 @@ router.post('/', (req, res) => {
             stderrLogs: stderrLogs,
             exitCallback: () => {
               // console.log('exit call back');
-              //mp4frag.resetCache()
+              // mp4frag.resetCache()
             }
           })
           .on('fail', (msg) => {

@@ -5,8 +5,8 @@ const portRange = port + 10
 const nodeEnv = process.argv[3] || process.env.NODE_ENV || 'production'
 const display = process.argv[4] || '1'
 
-
-const bonjour = require('bonjour')()
+// import the module
+const mdns = require('mdns')
 const express = require('express')
 const app = express()
 const http = require('http')
@@ -21,7 +21,6 @@ const ejs = require('ejs')
 const index = require('./routes/index')
 const install = require('./routes/install')
 const hls = require('./routes/hls')
-const mp4 = require('./routes/mp4')
 const mjpeg = require('./routes/mjpeg')
 const progress = require('./routes/progress')
 const assets = require('./routes/assets')
@@ -55,7 +54,8 @@ app.set('stderrSocket', stderrSocket)
 app.set('ejs', ejs)
 app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'ejs')
-app.set('bonjour',bonjour)
+app.set('mdns', mdns)
+//app.set('bonjour',bonjour)
 
 // uncomment after placing your favicon in /public
 // app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
@@ -72,7 +72,6 @@ app.use('/assets', assets)
 app.use('/', index)
 app.use('/install', install)
 app.use('/hls', hls)
-app.use('/mp4', mp4)
 app.use('/mjpeg', mjpeg)
 app.use('/progress', progress)
 app.use('/mdi', express.static(path.join(__dirname, 'node_modules/material-design-icons/iconfont')))
@@ -145,172 +144,161 @@ function onListening () {
   const bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port
   console.log(`Listening on ${bind}.`)
 
-  const { exec } = require('child_process');
-  exec(app.get('ffmpegPath')+' -f avfoundation -list_devices true -i \"\"', (err, stdout, stderr) => {
+  const { exec } = require('child_process')
+  exec(app.get('ffmpegPath') + ' -f avfoundation -list_devices true -i \"\"', (err, stdout, stderr) => {
     if (err) {
       // node couldn't execute the command
-      console.log(`stderr: ${stderr}`);
-      return;
+      console.log(`stderr: ${stderr}`)
     }
   })
 
-  const os =require('os')
-
-// advertise an HTTP server on port 3000
-  var hostname = os.hostname()
-  var service = bonjour.publish({ name: hostname, type: '_jitslides._tcp', port: addr.port })
-
-  service.on('up', function () {
-      console.log(`Bonjour Service up ${bind}.`)
-    })
+  // advertise an HTTP server on port 3000
+  mdns.createAdvertisement(mdns.tcp('_jitslides'), addr.port).start()
+  //bonjour.publish({ name: 'Stephanes-MacBook-Ret.local', type: '_jitslides', port: addr.port })
 
   let ffmpeg = app.get('ffmpeg')
   const express = require('express')
   const router = express.Router()
   const {PassThrough} = require('stream')
   const FR = require('ffmpeg-respawn')
-  const M4F = require('mp4frag')
+  //const M4F = require('mp4frag')
   const P2J = require('pipe2jpeg')
-//  const packageJson = require('package')
-  //const title = `${packageJson.name} ver: ${packageJson.version}`
+  //  const packageJson = require('package')
+  // const title = `${packageJson.name} ver: ${packageJson.version}`
   let values = null
-    let mp4frag = app.get('mp4frag')
-    let pipe2jpeg = app.get('pipe2jpeg')
-    let stderrLogs = app.get('stderrLogs')
-    if (ffmpeg && ffmpeg.running) {
-      ffmpeg.stop()
+  //let mp4frag = app.get('mp4frag')
+  let pipe2jpeg = app.get('pipe2jpeg')
+  let stderrLogs = app.get('stderrLogs')
+  if (ffmpeg && ffmpeg.running) {
+    ffmpeg.stop()
+  }
+
+  /* +++++++++ gather form input values ++++++++++ */
+
+  /** @param {String} values.logLevel - (-loglevel logLevel) */
+  const logLevel = 'info'
+
+  /** @param {String} values.hwAccel - (-hwaccel hwAccel) */
+  const hwAccel = 'auto'
+
+  /** @param {Number} [values.analyzeDuration] - (-analyzeduration analyzeDuration) 0 - 10000000 */
+  const analyzeDuration = 10000000
+
+  /** @param {Number} [values.probeSize] - (-probesize probeSize) 32 - 1048576 */
+  const probeSize = 1048576
+
+  /** @param {String} values.inputType - (-f inputType) */
+  const inputType = 'avfoundation'
+
+  /** @param {String} values.inputUrl - (-i inputUrl) */
+  const inputUrl = app.get('display')
+
+  /** @param {String} [values.rtspTransport] - (-rtsp_transport rtspTransport) */
+  const rtspTransport = 'tcp'
+
+  /** @param {String} values.jpegCodec - (-c jpegCodec) */
+  const jpegCodec = 'mjpeg'
+
+  /** @param {Number} [values.jpegRate] - (-r jpegRate) 1 - 30 */
+  const jpegRate = 7
+
+  /** @param {Number} [values.jpegScale] - (-vf scale=trunc(iw*jpegScale/2)*2:-2) .10 - 1 */
+  const jpegScale = 0.75
+
+  /** @param {Number} [values.jpegQuality] - (-q jpegQuality) 1 - 31 */
+  const jpegQuality = 10
+
+  /* +++++++++ process form input values ++++++++++ */
+
+  // params to be passed to ffmpeg
+  const params = []
+
+  params.push(...['-hwaccel', hwAccel])
+
+  if (analyzeDuration !== 'none') {
+    params.push(...['-analyzeduration', analyzeDuration])
+  }
+
+  if (probeSize !== 'none') {
+    params.push(...['-probesize', probeSize])
+  }
+
+  params.push('-re')
+  params.push(...['-f', 'avfoundation', '-video_size', '640x480', '-framerate', '30', '-i', inputUrl])
+
+  params.push(...['-c', jpegCodec])
+
+  if (jpegCodec !== 'copy') {
+    if (jpegQuality !== 'none') {
+      params.push(...['-q', jpegQuality])
     }
 
+    if (jpegRate !== 'none') {
+      params.push(...['-r', jpegRate])
+    }
 
-        /* +++++++++ gather form input values ++++++++++ */
+    if (jpegScale !== 'none') {
+      params.push(...['-vf', `scale=trunc(iw*${jpegScale}/2)*2:-2`])
+    }
+  }
 
+  // TODO -f mpjpeg -boundary_tag ffmpeg_streamer so that we can later pipe response without parsing individual jpegs
+  params.push(...['-f', 'image2pipe', 'pipe:4'])
 
-        /** @param {String} values.logLevel - (-loglevel logLevel) */
-        const logLevel = 'info'
+  pipe2jpeg = new P2J()
+    .setMaxListeners(30)
+    .on('error', (err) => {
+      console.log(err.message)
+    })
 
-        /** @param {String} values.hwAccel - (-hwaccel hwAccel) */
-        const hwAccel = 'auto'
+  app.set('pipe2jpeg', pipe2jpeg)
 
-        /** @param {Number} [values.analyzeDuration] - (-analyzeduration analyzeDuration) 0 - 10000000 */
-        const analyzeDuration = 10000000
+  stderrLogs = new PassThrough({
+    transform (chunk, encoding, callback) {
+      if (this._readableState.pipesCount > 0) {
+        this.push(chunk)
+      }
+      callback()
+    }
+  })
+    .setMaxListeners(30)
+    .on('error', (err) => {
+      console.log(err.message)
+    })
 
-        /** @param {Number} [values.probeSize] - (-probesize probeSize) 32 - 1048576 */
-        const probeSize = 1048576
+  app.set('stderrLogs', stderrLogs)
 
-        /** @param {String} values.inputType - (-f inputType) */
-        const inputType = 'avfoundation'
-
-        /** @param {String} values.inputUrl - (-i inputUrl) */
-        const inputUrl = app.get('display')
-
-        /** @param {String} [values.rtspTransport] - (-rtsp_transport rtspTransport) */
-        const rtspTransport = 'tcp'
-
-
-        /** @param {String} values.jpegCodec - (-c jpegCodec) */
-        const jpegCodec = 'mjpeg'
-
-        /** @param {Number} [values.jpegRate] - (-r jpegRate) 1 - 30 */
-        const jpegRate = 7
-
-        /** @param {Number} [values.jpegScale] - (-vf scale=trunc(iw*jpegScale/2)*2:-2) .10 - 1 */
-        const jpegScale = 0.75
-
-        /** @param {Number} [values.jpegQuality] - (-q jpegQuality) 1 - 31 */
-        const jpegQuality = 10
-
-        /* +++++++++ process form input values ++++++++++ */
-
-        // params to be passed to ffmpeg
-        const params = []
-
-        params.push(...['-hwaccel', hwAccel])
-
-        if (analyzeDuration !== 'none') {
-          params.push(...['-analyzeduration', analyzeDuration])
+  try {
+    ffmpeg = new FR(
+      {
+        path: app.get('ffmpegPath'),
+        params: params,
+        logLevel: logLevel,
+        pipes: [
+          {stdioIndex: 4, destination: pipe2jpeg}
+        ],
+        killAfterStall: 10,
+        spawnAfterExit: 2,
+        reSpawnLimit: 100,
+        stderrLogs: stderrLogs,
+        exitCallback: () => {
+          // console.log('exit call back');
+          // mp4frag.resetCache()
         }
-
-        if (probeSize !== 'none') {
-          params.push(...['-probesize', probeSize])
-        }
-
-        params.push('-re')
-            params.push(...['-f', 'avfoundation', '-video_size', '640x480', '-framerate', '30', '-i', inputUrl])
-
-        params.push(...['-c', jpegCodec])
-
-        if (jpegCodec !== 'copy') {
-          if (jpegQuality !== 'none') {
-            params.push(...['-q', jpegQuality])
-          }
-
-          if (jpegRate !== 'none') {
-            params.push(...['-r', jpegRate])
-          }
-
-          if (jpegScale !== 'none') {
-            params.push(...['-vf', `scale=trunc(iw*${jpegScale}/2)*2:-2`])
-          }
-        }
-
-        // TODO -f mpjpeg -boundary_tag ffmpeg_streamer so that we can later pipe response without parsing individual jpegs
-        params.push(...['-f', 'image2pipe', 'pipe:4'])
-
-        pipe2jpeg = new P2J()
-          .setMaxListeners(30)
-          .on('error', (err) => {
-            console.log(err.message)
-          })
-
-        app.set('pipe2jpeg', pipe2jpeg)
-
-        stderrLogs = new PassThrough({
-          transform (chunk, encoding, callback) {
-            if (this._readableState.pipesCount > 0) {
-              this.push(chunk)
-            }
-            callback()
-          }
-        })
-          .setMaxListeners(30)
-          .on('error', (err) => {
-            console.log(err.message)
-          })
-
-        app.set('stderrLogs', stderrLogs)
-
-        try {
-          ffmpeg = new FR(
-            {
-              path: app.get('ffmpegPath'),
-              params: params,
-              logLevel: logLevel,
-              pipes: [
-                {stdioIndex: 4, destination: pipe2jpeg}
-              ],
-              killAfterStall: 10,
-              spawnAfterExit: 2,
-              reSpawnLimit: 100,
-              stderrLogs: stderrLogs,
-              exitCallback: () => {
-                // console.log('exit call back');
-                //mp4frag.resetCache()
-              }
-            })
-            .on('fail', (msg) => {
-              console.log('fail', msg)
-            })
-            .start()
-          app.set('ffmpeg', ffmpeg)
-        } catch (error) {
-          console.log('fail', error.message)
-        }
-
+      })
+      .on('fail', (msg) => {
+        console.log('fail', msg)
+      })
+      .start()
+    app.set('ffmpeg', ffmpeg)
+  } catch (error) {
+    console.log('fail', error.message)
+  }
 }
 
 // print process.argv
 process.argv.forEach(function (val, index, array) {
-  console.log(index + ': ' + val);
-});
+  console.log(index + ': ' + val)
+})
 
 module.exports = app
