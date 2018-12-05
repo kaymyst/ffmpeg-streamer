@@ -1,9 +1,10 @@
 'use strict'
 
-let port = normalizePort(process.argv[2] || process.env.PORT || '7716')
+let port = normalizePort(process.env.PORT || '7716')
 const portRange = port + 10
+const display = process.argv[2] || '1'
 const nodeEnv = process.argv[3] || process.env.NODE_ENV || 'production'
-const display = process.argv[4] || '1'
+
 
 // import the module
 const mdns = require('mdns')
