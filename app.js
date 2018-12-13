@@ -146,7 +146,7 @@ function onListening () {
   console.log(`Listening on ${bind}.`)
 
   const { exec } = require('child_process')
-  exec(app.get('ffmpegPath') + ' -f avfoundation -list_devices true -i \"\"', (err, stdout, stderr) => {
+  exec(app.get('ffmpegPath') + ' -hide_banner -f avfoundation -list_devices true -i \"\"', (err, stdout, stderr) => {
     if (err) {
       // node couldn't execute the command
       console.log(`stderr: ${stderr}`)
@@ -225,7 +225,7 @@ function onListening () {
   }
 
   params.push('-re')
-  params.push(...['-f', 'avfoundation', '-video_size', '640x480', '-framerate', '30', '-i', inputUrl])
+  params.push(...['-f', 'avfoundation', '-video_size', '640x480', '-framerate', '10', '-i', inputUrl])
 
   params.push(...['-c', jpegCodec])
 

@@ -196,7 +196,7 @@ router.post('/', (req, res) => {
           break */
 
         case 'avfoundation':
-          params.push(...['-f', 'avfoundation', '-video_size', '640x480', '-framerate', '30', '-i', inputUrl])
+          params.push(...['-f', 'avfoundation', '-video_size', '640x480', '-framerate', '10', '-i', inputUrl])
           break
 
         case 'mp4':
