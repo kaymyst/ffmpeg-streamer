@@ -5,7 +5,7 @@ const portRange = port + 10
 const display = process.argv[2] || '1'
 const nodeEnv = process.argv[3] || process.env.NODE_ENV || 'production'
 
-
+let ad =null
 // import the module
 const mdns = require('mdns')
 const express = require('express')
@@ -154,7 +154,8 @@ function onListening () {
   })
 
   // advertise an HTTP server on port 3000
-  mdns.createAdvertisement(mdns.tcp('_jitslides'), addr.port).start()
+  ad = mdns.createAdvertisement(mdns.tcp('_jitslides'), addr.port)
+  ad.start()
   //bonjour.publish({ name: 'Stephanes-MacBook-Ret.local', type: '_jitslides', port: addr.port })
 
   let ffmpeg = app.get('ffmpeg')
@@ -301,5 +302,20 @@ function onListening () {
 process.argv.forEach(function (val, index, array) {
   console.log(index + ': ' + val)
 })
+
+function exitHandler(options, exitCode) {
+    if (options.cleanup) ad.stop();
+    if (exitCode || exitCode === 0) console.log(exitCode);
+    if (options.exit) process.exit();
+}
+
+//do something when app is closing
+process.on('exit', exitHandler.bind(null,{cleanup:true}));
+//catches ctrl+c event
+process.on('SIGINT', exitHandler.bind(null, {exit:true}));
+// catches "kill pid" (for example: nodemon restart)
+process.on('SIGUSR1', exitHandler.bind(null, {exit:true}));
+process.on('SIGUSR2', exitHandler.bind(null, {exit:true}));
+
 
 module.exports = app
