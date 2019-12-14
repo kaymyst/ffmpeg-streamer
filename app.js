@@ -140,18 +140,40 @@ function onError (error) {
   }
 }
 
+let arrayofdevices = [];
 function onListening () {
   const addr = server.address()
   const bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port
   console.log(`Listening on ${bind}.`)
 
   const { exec } = require('child_process')
+  var donevideo = false;
+
   exec(app.get('ffmpegPath') + ' -hide_banner -f avfoundation -list_devices true -i \"\"', (err, stdout, stderr) => {
     if (err) {
       // node couldn't execute the command
-      console.log(`stderr: ${stderr}`)
+      var lines = stderr.match(/^.*([\n\r]+|$)/gm);
+
+      lines.forEach(line => {
+        if (line.includes("AVFoundation audio devices:"))
+          donevideo = true;
+      if (line.includes( "[AVFoundation input device")&&!donevideo)
+      {
+        if (!line.includes("AVFoundation video devices:"))
+        {
+
+          var regExp = /(\[([^\]]|\[\])*\])/;
+          var matches = regExp.exec(line);
+          var device = line.replace(matches[1],"").trim();
+          arrayofdevices.push(device)
+          console.log(`Video device : ${device}`)
+        }
+      }
+
+    });
     }
   })
+
 
   // advertise an HTTP server on port 3000
   ad = mdns.createAdvertisement(mdns.tcp('_jitslides'), addr.port)
