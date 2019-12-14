@@ -31,8 +31,8 @@
     "serve-favicon": "^2.5.0",
     "socket.io": "^2.2.0"
   },
-  "bin": "main.js",
-  "main": "main.js",
+  "bin": "app.js",
+  "main": "app.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kevinGodell/ffmpeg-streamer.git"
