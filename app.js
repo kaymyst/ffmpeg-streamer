@@ -224,7 +224,7 @@ function onListening () {
   const jpegCodec = 'mjpeg'
 
   /** @param {Number} [values.jpegRate] - (-r jpegRate) 1 - 30 */
-  const jpegRate = 7
+  const jpegRate = 2
 
   /** @param {Number} [values.jpegScale] - (-vf scale=trunc(iw*jpegScale/2)*2:-2) .10 - 1 */
   const jpegScale = 0.75
@@ -248,7 +248,7 @@ function onListening () {
   }
 
   params.push('-re')
-  params.push(...['-f', 'avfoundation', '-video_size', '640x480', '-framerate', '10', '-i', inputUrl])
+  params.push(...['-f', 'avfoundation',  '-framerate', '2', '-i', inputUrl])
 
   params.push(...['-c', jpegCodec])
 
@@ -268,6 +268,8 @@ function onListening () {
 
   // TODO -f mpjpeg -boundary_tag ffmpeg_streamer so that we can later pipe response without parsing individual jpegs
   params.push(...['-f', 'image2pipe', 'pipe:4'])
+
+  //console.log(params);
 
   pipe2jpeg = new P2J()
     .setMaxListeners(30)
